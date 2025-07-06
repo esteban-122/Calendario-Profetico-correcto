@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario Gregoriano vs. 360 Días</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            background-color: #f4f4f4;
+        }
+        .calendar-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 80%;
+            max-width: 900px;
+            text-align: center;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .calendar-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        .calendar-header select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+        }
+        .day-header {
+            font-weight: bold;
+            background-color: #e0e0e0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .day-cell {
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-start;
+            text-align: left;
+            background-color: #fff;
+        }
+        .day-cell.empty {
+            background-color: #f9f9f9;
+            border: 1px dashed #eee;
+        }
+        .gregorian-date {
+            font-weight: bold;
+            color: #0056b3;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        .hypothetical-date {
+            font-size: 0.85em;
+            color: #555;
+        }
+        .instructions {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <select id="monthSelect"></select>
+            <h2 id="currentMonthYear"></h2>
+            <select id="yearSelect"></select>
+        </div>
+        <div class="calendar-grid" id="calendarGrid">
+            <div class="day-header">Dom</div>
+            <div class="day-header">Lun</div>
+            <div class="day-header">Mar</div>
+            <div class="day-header">Mié</div>
+            <div class="day-header">Jue</div>
+            <div class="day-header">Vie</div>
+            <div class="day-header">Sáb</div>
+        </div>
+    </div>
+    <div class="instructions">
+        Selecciona un año y un mes para ver el calendario gregoriano y sus fechas equivalentes en el calendario de 360 días.
+        <br>
+        Las fechas se calculan asumiendo que el "Año 1" de ambos calendarios es el mismo y que el calendario hipotético tiene 12 meses de 30 días.
+    </div>
+
+    <script>
+        const monthNames = [
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ];
+        const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // For non-leap year
+
+        const monthSelect = document.getElementById('monthSelect');
+        const yearSelect = document.getElementById('yearSelect');
+        const currentMonthYear = document.getElementById('currentMonthYear');
+        const calendarGrid = document.getElementById('calendarGrid');
+
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth(); // 0-indexed
+
+        // Populate month and year selects
+        monthNames.forEach((month, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = month;
+            monthSelect.appendChild(option);
+        });
+
+        for (let i = 1; i <= 3000; i++) { // Range of years
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            yearSelect.appendChild(option);
+        }
+
+        // Set initial values for selects
+        monthSelect.value = currentMonth;
+        yearSelect.value = currentYear;
+
+        monthSelect.addEventListener('change', (e) => {
+            currentMonth = parseInt(e.target.value);
+            renderCalendar();
+        });
+
+        yearSelect.addEventListener('change', (e) => {
+            currentYear = parseInt(e.target.value);
+            renderCalendar();
+        });
+
+        // --- Helper Functions for Calculations ---
+
+        function isLeapYearGregorian(year) {
+            return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        }
+
+        function getDaysInMonthGregorian(year, month) {
+            if (month === 1 && isLeapYearGregorian(year)) { // February
+                return 29;
+            }
+            return monthDays[month];
+        }
+
+        function calculateDaysSinceYear1(year, month, day) {
+            let totalDays = 0;
+
+            // Days for full years completed until (year - 1)
+            for (let y = 1; y < year; y++) {
+                totalDays += isLeapYearGregorian(y) ? 366 : 365;
+            }
+
+            // Days for months completed in the current year
+            for (let m = 0; m < month; m++) {
+                totalDays += getDaysInMonthGregorian(year, m);
+            }
+
+            // Days in the current month
+            totalDays += day;
+
+            return totalDays;
+        }
+
+        function convertTo360DayCalendar(gregorianDaysTotal) {
+            const daysInHypotheticalYear = 360;
+            const daysInHypotheticalMonth = 30;
+
+            // Adjust for the "Year 0" if desired, but our formula assumes Year 1 as start.
+            // If the gregorian date is Jan 1, Year 1, totalDays is 1.
+            // 1 / 360 = 0 years, 1 day. So it would be Jan 1, Year 1 (hypothetical).
+            // This is consistent.
+
+            const hypotheticalYear = Math.floor((gregorianDaysTotal - 1) / daysInHypotheticalYear) + 1;
+            const dayOfYearHypothetical = ((gregorianDaysTotal - 1) % daysInHypotheticalYear) + 1;
+
+            let hypotheticalMonth = 0; // 0-indexed
+            let remainingDays = dayOfYearHypothetical;
+
+            while (remainingDays > daysInHypotheticalMonth) {
+                remainingDays -= daysInHypotheticalMonth;
+                hypotheticalMonth++;
+            }
+            
+            const hypotheticalDay = remainingDays;
+
+            return {
+                year: hypotheticalYear,
+                month: hypotheticalMonth, // 0-indexed
+                day: hypotheticalDay
+            };
+        }
+
+        // --- Calendar Rendering ---
+
+        function renderCalendar() {
+            calendarGrid.innerHTML = `
+                <div class="day-header">Dom</div>
+                <div class="day-header">Lun</div>
+                <div class="day-header">Mar</div>
+                <div class="day-header">Mié</div>
+                <div class="day-header">Jue</div>
+                <div class="day-header">Vie</div>
+                <div class="day-header">Sáb</div>
+            `; // Clear and re-add headers
+
+            currentMonthYear.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); // 0 for Sunday, 6 for Saturday
+            const daysInMonth = getDaysInMonthGregorian(currentYear, currentMonth);
+
+            // Add empty cells for the leading days of the week
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.classList.add('day-cell', 'empty');
+                calendarGrid.appendChild(emptyCell);
+            }
+
+            // Add cells for each day of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.classList.add('day-cell');
+
+                const gregorianDateElem = document.createElement('div');
+                gregorianDateElem.classList.add('gregorian-date');
+                gregorianDateElem.textContent = day;
+                dayCell.appendChild(gregorianDateElem);
+
+                // Calculate hypothetical date
+                const totalDaysSinceYear1 = calculateDaysSinceYear1(currentYear, currentMonth, day);
+                const hypotheticalDate = convertTo360DayCalendar(totalDaysSinceYear1);
+
+                const hypotheticalDateElem = document.createElement('div');
+                hypotheticalDateElem.classList.add('hypothetical-date');
+                hypotheticalDateElem.textContent = `${hypotheticalDate.day} ${monthNames[hypotheticalDate.month]} ${hypotheticalDate.year}`;
+                dayCell.appendChild(hypotheticalDateElem);
+
+                calendarGrid.appendChild(dayCell);
+            }
+        }
+
+        // Initial render
+        renderCalendar();
+    </script>
+</body>
+</html>
